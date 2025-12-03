@@ -4,168 +4,96 @@ import psycopg2
 import requests
 
 DATABASE_URL = os.getenv("DATABASE_URL")
-DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
-GROUP_LABEL = os.getenv("GROUP_LABEL")
+TEAM_WEBHOOK_URL = os.getenv("TEAM_WEBHOOK_URL")
 
-# Threshold for alerts
-ALERT_THRESHOLD = 1000
+IMAGE_BASE = "https://raw.githubusercontent.com/richpow/tiktok-live-listener/main/gifts"
 
-# Poll every 20 seconds
-POLL_INTERVAL = 20
-
-# Track the last processed row
-last_id = 0
+GROUP_NAME = "FT (Richard Powell)"
+GIFT_THRESHOLD = 500   # only send alerts for gifts >= 1000 diamonds
 
 
-def get_db():
+def db():
     return psycopg2.connect(DATABASE_URL)
 
 
-def fetch_creators():
-    """
-    Finds all creators in the user's team by assigned_group.
-    """
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute(
-        """
-        select tiktok_username
-        from users
-        where assigned_group = %s
-          and tiktok_username is not null
-          and tiktok_username <> ''
-          and creator_id is not null
-          and creator_id <> ''
-        """,
-        (GROUP_LABEL,),
-    )
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
-    return [r[0] for r in rows]
-
-
-def fetch_new_gifts():
-    """
-    Returns new gifts from fasttrack_team_gifts with ID > last_id
-    Only returns those over the alert threshold AND belonging to the team.
-    """
-    global last_id
-
-    conn = get_db()
+def fetch_recent_gifts():
+    conn = db()
     cur = conn.cursor()
 
-    cur.execute(
-        """
-        select g.id,
-               g.creator_username,
-               g.sender_username,
-               g.sender_display_name,
-               g.gift_name,
-               g.diamonds_per_item,
-               g.repeat_count,
-               g.total_diamonds,
-               g.received_at
-        from fasttrack_team_gifts g
-        join users u
-          on u.tiktok_username = g.creator_username
-        where g.id > %s
-          and u.assigned_group = %s
-          and g.total_diamonds >= %s
-        order by g.id asc
-        """,
-        (last_id, GROUP_LABEL, ALERT_THRESHOLD),
-    )
+    cur.execute("""
+        select
+            creator_username,
+            sender_username,
+            sender_display_name,
+            gift_name,
+            diamonds_per_item,
+            repeat_count,
+            total_diamonds
+        from fasttrack_live_gifts
+        where creator_username in (
+            select tiktok_username
+            from users
+            where assigned_group = %s
+              and tiktok_username is not null
+              and tiktok_username <> ''
+        )
+        and total_diamonds >= %s
+        and timestamp > now() - interval '70 seconds'
+        order by timestamp desc
+    """, (GROUP_NAME, GIFT_THRESHOLD))
 
     rows = cur.fetchall()
     cur.close()
     conn.close()
-
-    # Update last ID if any rows
-    if rows:
-        last_id = rows[-1][0]
-
     return rows
 
 
-def send_discord_alert(
-    creator_username,
-    sender_username,
-    sender_display_name,
-    gift_name,
-    diamonds_per_item,
-    repeat_count,
-    total_diamonds,
-    received_at,
-):
-    """
-    Sends a styled Discord embed.
-    """
+def build_image_url(gift_name: str):
+    key = gift_name.lower().strip().replace(" ", "_").replace("'", "")
+    filename = f"{key}.png"
+    return f"{IMAGE_BASE}/{filename}?raw=true"
+
+
+def send_team_alert(row):
+    creator, sender_user, sender_display, gift, diamonds, count, total = row
+
+    image_url = build_image_url(gift)
 
     embed = {
         "title": "Gift Alert",
-        "description": f"**{creator_username}** has just received a **{gift_name}**",
-        "color": 3447003,  # Blue bar
+        "description": f"**{creator}** has just received a **{gift}**",
+        "color": 3447003,  # blue bar
+        "thumbnail": {"url": image_url},
         "fields": [
-            {"name": "Creator", "value": creator_username, "inline": False},
-            {"name": "From", "value": sender_username, "inline": False},
-            {"name": "Display Name", "value": sender_display_name, "inline": False},
-            {"name": "Gift", "value": gift_name, "inline": False},
-            {"name": "Diamonds", "value": str(diamonds_per_item), "inline": True},
-            {"name": "Count", "value": str(repeat_count), "inline": True},
-            {"name": "Total Diamonds", "value": str(total_diamonds), "inline": False},
-            {"name": "Received At", "value": str(received_at), "inline": False},
-        ],
+            {"name": "Creator", "value": creator, "inline": False},
+            {"name": "From", "value": sender_user, "inline": False},
+            {"name": "Display Name", "value": sender_display, "inline": False},
+            {"name": "Gift", "value": gift, "inline": False},
+            {"name": "Diamonds", "value": f"{diamonds:,}", "inline": True},
+            {"name": "Count", "value": str(count), "inline": True},
+            {"name": "Total diamonds", "value": f"{total:,}", "inline": False}
+        ]
     }
 
     payload = {"embeds": [embed]}
 
     try:
-        requests.post(DISCORD_WEBHOOK_URL, json=payload, timeout=5)
-        print(f"Alert sent for {creator_username} ({total_diamonds} diamonds)")
+        requests.post(TEAM_WEBHOOK_URL, json=payload)
+        print(f"[SENT] {creator} received {gift} ({total} diamonds)")
     except Exception as e:
-        print("Discord webhook error:", e)
+        print("Discord error:", e)
 
 
 def main_loop():
-    creators = fetch_creators()
-    print(f"Tracking {len(creators)} creators in {GROUP_LABEL}")
+    print("Team gift poller started…")
 
     while True:
-        try:
-            new_gifts = fetch_new_gifts()
+        rows = fetch_recent_gifts()
+        for row in rows:
+            send_team_alert(row)
 
-            for row in new_gifts:
-                (
-                    gift_id,
-                    creator_username,
-                    sender_username,
-                    sender_display_name,
-                    gift_name,
-                    diamonds_per_item,
-                    repeat_count,
-                    total_diamonds,
-                    received_at,
-                ) = row
-
-                send_discord_alert(
-                    creator_username,
-                    sender_username,
-                    sender_display_name,
-                    gift_name,
-                    diamonds_per_item,
-                    repeat_count,
-                    total_diamonds,
-                    received_at,
-                )
-
-        except Exception as e:
-            print("Error in poll loop:", e)
-
-        # Sleep a bit to avoid Railway rate limits
-        time.sleep(POLL_INTERVAL)
+        time.sleep(60)  # poll every minute
 
 
 if __name__ == "__main__":
-    print("Starting Team Gift Monitor...")
     main_loop()
