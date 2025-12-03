@@ -9,7 +9,7 @@ TEAM_WEBHOOK_URL = os.getenv("TEAM_WEBHOOK_URL")
 IMAGE_BASE = "https://raw.githubusercontent.com/richpow/tiktok-live-listener/main/gifts"
 
 GROUP_NAME = "FT (Richard Powell)"
-GIFT_THRESHOLD = 500   # only send alerts for gifts >= this value
+GIFT_THRESHOLD = 500   # minimum diamonds before alert is sent
 
 
 def db():
@@ -49,7 +49,14 @@ def fetch_recent_gifts():
 
 
 def build_image_url(gift_name: str):
-    key = gift_name.lower().strip().replace(" ", "_").replace("'", "")
+    # Convert gift name to GitHub filename format
+    key = (
+        gift_name.lower()
+        .strip()
+        .replace(" ", "_")
+        .replace("'", "")
+        .replace(".", "")
+    )
     filename = f"{key}.png"
     return f"{IMAGE_BASE}/{filename}?raw=true"
 
@@ -62,7 +69,7 @@ def send_team_alert(row):
     embed = {
         "title": "Gift Alert",
         "description": f"**{creator}** has just received a **{gift}**",
-        "color": 3447003,  # blue
+        "color": 3447003,   # blue accent bar
         "thumbnail": {"url": image_url},
         "fields": [
             {"name": "Creator", "value": creator, "inline": False},
