@@ -26,10 +26,6 @@ def db():
 
 
 def fetch_recent_gifts():
-    """
-    Pull gifts from fasttrack_live_gifts where the associated creator
-    has a creator_network_manager email in our whitelist.
-    """
     conn = db()
     cur = conn.cursor()
 
@@ -74,18 +70,18 @@ def send_team_alert(row):
 
     image_url = build_image_url(gift)
 
-    # MATCHING LISTENER EMBED STYLE
+    # Updated embed structure
     embed = {
         "title": "Gift Alert",
-        "description": f"**{creator}** has just received a **{gift}**",
+        "description": f"**{creator}** has just received a **{gift}** from **{sender_user}**.",
         "color": 3447003,   # blue bar
         "thumbnail": {"url": image_url},
         "fields": [
-            {"name": "Creator", "value": creator, "inline": True},
-            {"name": "Sent By", "value": f"{sender_user} | {sender_display}", "inline": True},
-            {"name": "Diamonds", "value": f"{diamonds:,}", "inline": True},
-            {"name": "Count", "value": str(count), "inline": True},
-            {"name": "Total Diamonds", "value": f"{total:,}", "inline": False}
+            {
+                "name": "Diamonds",
+                "value": f"{diamonds:,}",
+                "inline": False
+            }
         ]
     }
 
@@ -107,7 +103,7 @@ def main_loop():
         for row in rows:
             send_team_alert(row)
 
-        time.sleep(60)  # poll every minute
+        time.sleep(60)
 
 
 if __name__ == "__main__":
