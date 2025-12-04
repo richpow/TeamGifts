@@ -9,7 +9,7 @@ TEAM_WEBHOOK_URL = os.getenv("TEAM_WEBHOOK_URL")
 IMAGE_BASE = "https://raw.githubusercontent.com/richpow/tiktok-live-listener/main/gifts"
 
 GROUP_NAME = "FT (Richard Powell)"
-GIFT_THRESHOLD = 500   # minimum diamonds before alert is sent
+GIFT_THRESHOLD = 400   # minimum diamonds before alert is sent
 
 
 def db():
