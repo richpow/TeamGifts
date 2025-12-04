@@ -38,7 +38,7 @@ def fetch_recent_gifts():
               and tiktok_username <> ''
         )
         and total_diamonds >= %s
-        and received_at > now() - interval '70 seconds'
+        and received_at > now() - interval '20 minutes'
         order by received_at desc
     """, (GROUP_NAME, GIFT_THRESHOLD))
 
