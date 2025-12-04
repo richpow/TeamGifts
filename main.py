@@ -47,7 +47,7 @@ def fetch_recent_gifts():
             on u.tiktok_username = g.creator_username
         where u.creator_network_manager = ANY(%s)
           and g.total_diamonds >= %s
-          and g.received_at > now() - interval '40 minutes'
+          and g.received_at > now() - interval '70 seconds'
         order by g.received_at desc
     """, (list(MANAGER_EMAILS), GIFT_THRESHOLD))
 
