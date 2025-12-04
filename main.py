@@ -9,7 +9,7 @@ TEAM_WEBHOOK_URL = os.getenv("TEAM_WEBHOOK_URL")
 IMAGE_BASE = "https://raw.githubusercontent.com/richpow/tiktok-live-listener/main/gifts"
 
 GROUP_NAME = "FT (Richard Powell)"
-GIFT_THRESHOLD = 400   # minimum diamonds before alert is sent
+GIFT_THRESHOLD = 400
 
 
 def db():
@@ -22,24 +22,20 @@ def fetch_recent_gifts():
 
     cur.execute("""
         select
-            creator_username,
-            sender_username,
-            sender_display_name,
-            gift_name,
-            diamonds_per_item,
-            repeat_count,
-            total_diamonds
-        from fasttrack_live_gifts
-        where creator_username in (
-            select tiktok_username
-            from users
-            where assigned_group = %s
-              and tiktok_username is not null
-              and tiktok_username <> ''
-        )
-        and total_diamonds >= %s
-        and received_at > now() - interval '20 minutes'
-        order by received_at desc
+            g.creator_username,
+            g.sender_username,
+            g.sender_display_name,
+            g.gift_name,
+            g.diamonds_per_item,
+            g.repeat_count,
+            g.total_diamonds
+        from fasttrack_live_gifts g
+        join users u
+          on u.tiktok_username = g.creator_username
+        where u.assigned_group = %s
+          and g.total_diamonds >= %s
+          and g.received_at > now() - interval '20 minutes'
+        order by g.received_at desc
     """, (GROUP_NAME, GIFT_THRESHOLD))
 
     rows = cur.fetchall()
@@ -49,7 +45,6 @@ def fetch_recent_gifts():
 
 
 def build_image_url(gift_name: str):
-    # Convert gift name to GitHub filename format
     key = (
         gift_name.lower()
         .strip()
@@ -69,7 +64,7 @@ def send_team_alert(row):
     embed = {
         "title": "Gift Alert",
         "description": f"**{creator}** has just received a **{gift}**",
-        "color": 3447003,   # blue accent bar
+        "color": 3447003,
         "thumbnail": {"url": image_url},
         "fields": [
             {"name": "Creator", "value": creator, "inline": False},
@@ -93,13 +88,11 @@ def send_team_alert(row):
 
 def main_loop():
     print("Team gift poller started…")
-
     while True:
         rows = fetch_recent_gifts()
         for row in rows:
             send_team_alert(row)
-
-        time.sleep(60)  # poll every minute
+        time.sleep(60)
 
 
 if __name__ == "__main__":
