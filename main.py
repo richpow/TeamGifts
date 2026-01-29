@@ -11,17 +11,16 @@ IMAGE_BASE = "https://raw.githubusercontent.com/richpow/tiktok-live-listener/mai
 MANAGER_EMAILS = {
     "rich.powell@hotmail.com",
     "haldane007@icloud.com",
-    "owensjamie27@gmail.com",
     "allan.campbell3@icloud.com",
-    "jamesbcfc97@gmail.com",
-    "mitchellcolby008@gmail.com"
+    "mitchellcolby008@gmail.com",
+    "jeffreyadams6767@gmail.com"
 }
 
 GIFT_THRESHOLD = 400
 
 
 def db():
-    return psycopg2.connect(DATABASE_URL, sslmode="verify-full", sslrootcert="system")
+    return psycopg2.connect(DATABASE_URL, sslmode="require")
 
 
 def fetch_recent_gifts():
@@ -86,7 +85,7 @@ def send_team_alert(row):
     payload = {"embeds": [embed]}
 
     try:
-        requests.post(TEAM_WEBHOOK_URL, json=payload)
+        requests.post(TEAM_WEBHOOK_URL, json=payload, timeout=10)
         print(f"[SENT] {creator} received {gift} ({total} diamonds)")
     except Exception as e:
         print("Discord error:", e)
