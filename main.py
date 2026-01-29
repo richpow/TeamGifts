@@ -20,6 +20,8 @@ MANAGER_EMAILS = {
 GIFT_THRESHOLD = int(os.getenv("GIFT_THRESHOLD", "200"))
 POLL_SECONDS = int(os.getenv("POLL_SECONDS", "60"))
 
+NO_MATCH_LOG_EVERY_SECONDS = int(os.getenv("NO_MATCH_LOG_EVERY_SECONDS", "600"))
+
 
 def db():
     if not DATABASE_URL:
@@ -109,9 +111,10 @@ def send_team_alert(row):
 
 def main_loop():
     print("Team gift poller started…")
-    print(f"Using GIFT_THRESHOLD={GIFT_THRESHOLD} and POLL_SECONDS={POLL_SECONDS}")
+    print(f"Using GIFT_THRESHOLD={GIFT_THRESHOLD}, POLL_SECONDS={POLL_SECONDS}")
 
     last_seen = time.time() - 120
+    last_no_match_log = 0.0
 
     while True:
         try:
@@ -123,7 +126,10 @@ def main_loop():
             continue
 
         if not rows:
-            print("No matching gifts in this poll window")
+            now = time.time()
+            if now - last_no_match_log >= NO_MATCH_LOG_EVERY_SECONDS:
+                print("No matching gifts in this poll window")
+                last_no_match_log = now
         else:
             for row in rows:
                 send_team_alert(row)
