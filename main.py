@@ -17,8 +17,8 @@ MANAGER_EMAILS = {
     "jeffreyadams6767@gmail.com"
 }
 
-GIFT_THRESHOLD = 200
-POLL_SECONDS = 60
+GIFT_THRESHOLD = int(os.getenv("GIFT_THRESHOLD", "200"))
+POLL_SECONDS = int(os.getenv("POLL_SECONDS", "60"))
 
 
 def db():
@@ -109,13 +109,14 @@ def send_team_alert(row):
 
 def main_loop():
     print("Team gift poller started…")
+    print(f"Using GIFT_THRESHOLD={GIFT_THRESHOLD} and POLL_SECONDS={POLL_SECONDS}")
 
-    # Start window, so first pass only gets very recent gifts
     last_seen = time.time() - 120
 
     while True:
         try:
-            rows = fetch_recent_gifts(since_ts=time.strftime("%Y-%m-%d %H:%M:%S+00", time.gmtime(last_seen)))
+            since_ts = time.strftime("%Y-%m-%d %H:%M:%S+00", time.gmtime(last_seen))
+            rows = fetch_recent_gifts(since_ts=since_ts)
         except Exception as e:
             print("DB fetch failed:", e)
             time.sleep(POLL_SECONDS)
@@ -127,7 +128,6 @@ def main_loop():
             for row in rows:
                 send_team_alert(row)
                 received_at = row["received_at"]
-                # Move the cursor forward, prevent duplicates
                 try:
                     last_seen = max(last_seen, received_at.timestamp())
                 except Exception:
