@@ -17,7 +17,7 @@ MANAGER_EMAILS = {
     "jeffreyadams6767@gmail.com"
 }
 
-GIFT_THRESHOLD = 400
+GIFT_THRESHOLD = 200
 POLL_SECONDS = 60
 
 
