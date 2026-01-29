@@ -18,11 +18,13 @@ MANAGER_EMAILS = {
     "mitchellcolby008@gmail.com"
 }
 
-GIFT_THRESHOLD = 400   # diamonds required to trigger alert
+GIFT_THRESHOLD = 400  # diamonds required to trigger alert
 
 
 def db():
-    return psycopg2.connect(DATABASE_URL)
+    # Fix for Neon TLS in minimal containers:
+    # Use SSL, but rely on the system trust store instead of /root/.postgresql/root.crt
+    return psycopg2.connect(DATABASE_URL, sslmode="require", sslrootcert="system")
 
 
 def fetch_recent_gifts():
@@ -70,11 +72,10 @@ def send_team_alert(row):
 
     image_url = build_image_url(gift)
 
-    # Updated embed structure
     embed = {
         "title": "Gift Alert",
         "description": f"**{creator}** has just received a **{gift}** from **{sender_user}**.",
-        "color": 3447003,   # blue bar
+        "color": 3447003,
         "thumbnail": {"url": image_url},
         "fields": [
             {
