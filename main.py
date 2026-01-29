@@ -8,7 +8,6 @@ TEAM_WEBHOOK_URL = os.getenv("TEAM_WEBHOOK_URL")
 
 IMAGE_BASE = "https://raw.githubusercontent.com/richpow/tiktok-live-listener/main/gifts"
 
-# Emails that should trigger team alerts
 MANAGER_EMAILS = {
     "rich.powell@hotmail.com",
     "haldane007@icloud.com",
@@ -18,13 +17,11 @@ MANAGER_EMAILS = {
     "mitchellcolby008@gmail.com"
 }
 
-GIFT_THRESHOLD = 400  # diamonds required to trigger alert
+GIFT_THRESHOLD = 400
 
 
 def db():
-    # Fix for Neon TLS in minimal containers:
-    # Use SSL, but rely on the system trust store instead of /root/.postgresql/root.crt
-    return psycopg2.connect(DATABASE_URL, sslmode="require", sslrootcert="system")
+    return psycopg2.connect(DATABASE_URL, sslmode="verify-full", sslrootcert="system")
 
 
 def fetch_recent_gifts():
